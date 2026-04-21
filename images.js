@@ -6,6 +6,7 @@ import fs from "fs"
 import os from "os";
 import path from "path"
 import { createClient } from '@supabase/supabase-js'
+import axios from "axios"
 
 const supabase = createClient(
   process.env.PROJECT_URL,
@@ -36,14 +37,17 @@ router.get("/:code", async (req, res) => { //return photos ulr and data based on
   if (error) {
     return res.status(500).send({ mess: 'Supabase DB error' });
   }
+  let localization;
   if (data.length > 0){
+    if (data[0].lat != null && data[0].lng != null){
+      localization = await GetGeo(data[0].lat, data[0].lng)
+    }
     return res.status(200).send(
-      { 
-        url: data[0].url,
-        lat: data[0].lat,
-        lng: data[0].lng,
-        takenAt: data[0].takenAt
-      }
+    { 
+      url: data[0].url,
+      takenAt: data[0].takenAt,
+      localization: localization
+    }
     );
   }
   else {
@@ -118,7 +122,11 @@ router.post("/check", upload.single("file"), async (req, res) => { //checks if p
   if (DBerror) {
     return res.status(500).send({ mess: 'Supabase DB error' });
   }
+  let localization;
   if (DBdata.length > 0){
+    if (DBdata[0].lat != null && DBdata[0].lng != null){
+      localization = GetGeo(DBdata[0].lat, DBdata[0].lng)
+    }
     return res.status(200).send(
       { 
         exactMatch: true,
@@ -142,12 +150,16 @@ router.post("/check", upload.single("file"), async (req, res) => { //checks if p
     console.error(error);
     return res.status(500).send({ mess: 'Supabase DB error' });
   }
-  console.log(data)
   if (data.length > 0){
     let matches = [];
-    data.forEach(e => {
-      matches.push({code: e.code, url: e.url})
-    });
+    for (const e of data) {
+      let localization = null;
+      if (e.lat != null && e.lng != null){
+        localization = await GetGeo(e.lat, e.lng)
+        console.log(localization)
+      }
+      matches.push({code: e.code, url: e.url, localization: localization})
+    };
     return res.status(200).send(
       { 
         exactMatch: false,
@@ -165,6 +177,17 @@ router.post("/check", upload.single("file"), async (req, res) => { //checks if p
   }
 })
 
+async function GetGeo(lat, lon){
+  const response = await axios.get('https://api.latlng.work/reverse', {
+  params: {
+   lat: lat,
+    lon: lon
+  },
+    headers: {"X-Api-Key": process.env.API_GEO}
+  })
+  const loc = response.data.features[0].properties.country + ", " + response.data.features[0].properties.city;
+  return loc;
+}
 async function TryInsert(data, maxRetries = 5) {
   for (let i = 0; i < maxRetries; i++) {
     const code = MakeCode(6);
