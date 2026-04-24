@@ -1,5 +1,6 @@
 import express from "express"
 import rateLimit from "express-rate-limit";
+import cors from "cors"
 
 import images from "./images.js"
 import users from "./users.js"
@@ -17,6 +18,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(limiter)
 app.use(express.json());
+app.use(cors())
 
 app.use("/api/images", images)
 app.use("/api/users", users)

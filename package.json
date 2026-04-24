@@ -14,6 +14,7 @@
     "@supabase/supabase-js": "^2.103.0",
     "@types/crypto-js": "^4.2.2",
     "axios": "^1.15.1",
+    "cors": "^2.8.6",
     "crypto-js": "^4.2.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
