@@ -15,6 +15,7 @@
     "@types/crypto-js": "^4.2.2",
     "axios": "^1.15.1",
     "crypto-js": "^4.2.0",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
     "image-hash": "^7.0.1",

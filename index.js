@@ -1,6 +1,6 @@
 import express from "express"
 import rateLimit from "express-rate-limit";
-
+import 'dotenv/config';
 import images from "./images.js"
 import users from "./users.js"
 
