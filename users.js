@@ -5,7 +5,7 @@ const supabase = createClient(
   process.env.PROJECT_URL,
   process.env.API_SECRET
 )
-
+//f
 const router = express.Router();
 
 router.post("/register", async (req, res) => { //creates a new user
