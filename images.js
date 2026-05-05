@@ -7,6 +7,7 @@ import os from "os";
 import path from "path"
 import { createClient } from '@supabase/supabase-js'
 import axios from "axios"
+import sharp from "sharp";
 
 const supabase = createClient(
   process.env.PROJECT_URL,
@@ -118,6 +119,7 @@ router.post("/check", upload.single("file"), async (req, res) => { //checks if p
   }
   const sha256 = sha256FromBuffer(req.file.buffer);
   const phash = await phashFromBuffer(req.file.buffer);
+  console.log(phash)
   let selectQuery = supabase
     .from("images")
     .select(`
@@ -228,15 +230,17 @@ function bufferToTempFile(buffer) {
   return tmpPath;
 }
 
-function phashFromBuffer(buffer) {
+async function phashFromBuffer(buffer) {
+  const normalized = await sharp(buffer)
+    .rotate()
+    .toBuffer();
+    
+  const filePath = bufferToTempFile(normalized);
   return new Promise((resolve, reject) => {
-    const filePath = bufferToTempFile(buffer);
-
-    imageHash(filePath, 16, true, (err, data) => {
-      fs.unlinkSync(filePath);
-
-      if (err) return reject(err);
-      resolve(data);
+      imageHash(filePath, 16, true, (err, data) => {
+        fs.unlinkSync(filePath);
+        if (err) return reject(err);
+        resolve(data);
     });
   });
 }
