@@ -18,15 +18,19 @@ router.post("/register", async (req, res) => { //creates a new user
   if (req.body.login.length != 16){
     return res.status(400).send({ mess: "Invalid login" });
   }
-  try {
-    await supabase
-      .from("users")
-      .insert({
-        login: req.body.login
-      });
-  } catch (err) {
-    console.log(err)
-    return res.status(500).send({ mess: "Supabase DB error" });
+  const { data, error } = await supabase
+    .from("users")
+    .insert({
+      login: req.body.login
+    });
+  if(error) {
+    console.log(error)
+    if (error.code === "23505") {
+      return res.status(500).send({ mess: "Supabase DB error [2]" });
+    }
+    else{
+      return res.status(500).send({ mess: "Supabase DB error" });
+    }
   }
   res.status(200).send({ mess: "User created" });
 })
@@ -61,7 +65,6 @@ router.post("/login", async (req, res) => { //checks if account exists
     console.log(err)
     return res.status(500).send({ mess: "Supabase DB error" });
   }
-  res.status(200).send({ mess: "Logged in" });
 })
 
 export default router

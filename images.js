@@ -23,7 +23,7 @@ const upload = multer({
 
 const router = express.Router();
 
-router.get("/:code", async (req, res) => { //return photos ulr and data based on code
+router.get("/:code", async (req, res) => { //return photos url and data based on code
   if (req.params['code'].length != 6){
     return res.status(400).send({ mess: 'Invalid photo code' });
   }
@@ -31,24 +31,23 @@ router.get("/:code", async (req, res) => { //return photos ulr and data based on
     .from("images")
     .select(`
       url,
-      lat, 
-      lng,
-      takenAt
+      takenAt,
+      localization,
+      sha256,
+      phash
     `).eq("code", req.params['code'])
   const { data, error } = await selectQuery;
   if (error) {
     return res.status(500).send({ mess: 'Supabase DB error' });
   }
-  let localization;
   if (data.length > 0){
-    if (data[0].lat != null && data[0].lng != null){
-      localization = await GetGeo(data[0].lat, data[0].lng)
-    }
     return res.status(200).send(
     { 
       url: data[0].url,
       takenAt: data[0].takenAt,
-      localization: localization
+      localization: data[0].localization,
+      sha256: data[0].sha256,
+      phash: data[0].phash
     }
     );
   }
@@ -67,6 +66,10 @@ router.post("/upload", upload.single("file"), async (req, res) => { //uploads im
   const uploadedFile = req.file;
   const lat = null || req.body.lat;
   const lng = null || req.body.lng;
+  let localization = null;
+  if (lat != null && lng != null){
+    localization = await GetGeo(data[0].lat, data[0].lng)
+  }
   const takenAt = null || req.body.takenAt;
   let url = "";
   const filePath = crypto.randomUUID() + ".jpg"
@@ -96,7 +99,8 @@ router.post("/upload", upload.single("file"), async (req, res) => { //uploads im
       lng,
       takenAt,
       sha256,
-      phash
+      phash,
+      localization
     });
   } catch (err) {
     console.log(err)
@@ -124,11 +128,7 @@ router.post("/check", upload.single("file"), async (req, res) => { //checks if p
   if (DBerror) {
     return res.status(500).send({ mess: 'Supabase DB error' });
   }
-  let localization;
   if (DBdata.length > 0){
-    if (DBdata[0].lat != null && DBdata[0].lng != null){
-      localization = GetGeo(DBdata[0].lat, DBdata[0].lng)
-    }
     return res.status(200).send(
       { 
         exactMatch: true,
@@ -137,6 +137,8 @@ router.post("/check", upload.single("file"), async (req, res) => { //checks if p
           {
             code: DBdata[0].code,
             url: DBdata[0].url,
+            localization: DBdata[0].localization,
+            takenAt: DBdata[0].takenAt
           }
         ]
       }
@@ -155,12 +157,7 @@ router.post("/check", upload.single("file"), async (req, res) => { //checks if p
   if (data.length > 0){
     let matches = [];
     for (const e of data) {
-      let localization = null;
-      if (e.lat != null && e.lng != null){
-        localization = await GetGeo(e.lat, e.lng)
-        console.log(localization)
-      }
-      matches.push({code: e.code, url: e.url, localization: localization})
+      matches.push({code: e.code, url: e.url, localization: e.localization})
     };
     return res.status(200).send(
       { 

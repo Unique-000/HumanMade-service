@@ -1,6 +1,7 @@
 import express from "express"
 import rateLimit from "express-rate-limit";
-import 'dotenv/config';
+import cors from "cors"
+
 import images from "./images.js"
 import users from "./users.js"
 import multer from "multer";
@@ -18,6 +19,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(limiter)
 app.use(express.json());
+app.use(cors())
 
 app.use("/api/images", images)
 app.use("/api/users", users)
