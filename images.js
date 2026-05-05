@@ -15,9 +15,11 @@ const supabase = createClient(
 
 const upload = multer({
   limits: {
-    fileSize: 7 * 1024 * 1024, // 7MB limit
+    fileSize: 15 * 1024 * 1024, //15mb
   },
 });
+
+
 
 const router = express.Router();
 
@@ -178,14 +180,17 @@ router.post("/check", upload.single("file"), async (req, res) => { //checks if p
 })
 
 async function GetGeo(lat, lon){
-  const response = await axios.get('https://api.latlng.work/reverse', {
-  params: {
-   lat: lat,
-    lon: lon
-  },
-    headers: {"X-Api-Key": process.env.API_GEO}
-  })
-  const loc = response.data.features[0].properties.country + ", " + response.data.features[0].properties.city;
+  // const response = await axios.get('https://api.latlng.work/reverse', {
+  // params: {
+  //  lat: lat,
+  //   lon: lon
+  // },
+  //   headers: {"X-Api-Key": process.env.API_GEO}
+  // })
+  // const loc = response.data.features[0].properties.country + ", " + response.data.features[0].properties.city;
+
+  // rate limits were causing errors
+  const loc = "test not real location"
   return loc;
 }
 async function TryInsert(data, maxRetries = 5) {

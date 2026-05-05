@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import 'dotenv/config';
 import images from "./images.js"
 import users from "./users.js"
+import multer from "multer";
 
 const limiter = rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 minutes
@@ -27,6 +28,13 @@ app.get("/api", (req, res) => {
   })
 })
 
-const server = app.listen(PORT, () => {
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+	return res.status(400).json({ mess: err.message });
+  }
+  next(err);
+});
+
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log("server is running on port", server.address().port);
 });

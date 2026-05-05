@@ -5,7 +5,7 @@ const supabase = createClient(
   process.env.PROJECT_URL,
   process.env.API_SECRET
 )
-//f
+
 const router = express.Router();
 
 router.post("/register", async (req, res) => { //creates a new user
@@ -31,7 +31,7 @@ router.post("/register", async (req, res) => { //creates a new user
   res.status(200).send({ mess: "User created" });
 })
 
-router.get("/login", async (req, res) => { //checks if account exists
+router.post("/login", async (req, res) => { //checks if account exists
   if (req.body == undefined){
     return res.status(400).send({ mess: "Invalid login" });
   }
@@ -42,10 +42,21 @@ router.get("/login", async (req, res) => { //checks if account exists
     return res.status(400).send({ mess: "Invalid login" });
   }
   try {
-    await supabase
+    const { data, error } = await supabase
       .from("users")
       .select("login")
       .eq("login", req.body.login);
+
+    if (error) {
+      console.log(error);
+      return res.status(500).send({ mess: "Supabase DB error" });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).send({ mess: "User not found" });
+    }
+
+    res.status(200).send({ mess: "Logged in" });
   } catch (err) {
     console.log(err)
     return res.status(500).send({ mess: "Supabase DB error" });
