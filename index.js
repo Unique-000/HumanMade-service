@@ -1,7 +1,7 @@
 import express from "express"
 import rateLimit from "express-rate-limit";
 import cors from "cors"
-
+import "dotenv/config.js";
 import images from "./images.js"
 import users from "./users.js"
 import multer from "multer";

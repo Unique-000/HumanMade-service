@@ -1,5 +1,6 @@
 import express from "express"
 import { createClient } from '@supabase/supabase-js'
+import "dotenv/config.js";
 
 const supabase = createClient(
   process.env.PROJECT_URL,

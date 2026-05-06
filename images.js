@@ -8,6 +8,9 @@ import path from "path"
 import { createClient } from '@supabase/supabase-js'
 import axios from "axios"
 import sharp from "sharp";
+import "dotenv/config.js";
+
+
 
 const supabase = createClient(
   process.env.PROJECT_URL,
@@ -69,7 +72,7 @@ router.post("/upload", upload.single("file"), async (req, res) => { //uploads im
   const lng = null || req.body.lng;
   let localization = null;
   if (lat != null && lng != null){
-    localization = await GetGeo(data[0].lat, data[0].lng)
+    localization = await GetGeo(lat, lng);
   }
   const takenAt = null || req.body.takenAt;
   let url = "";
@@ -110,29 +113,37 @@ router.post("/upload", upload.single("file"), async (req, res) => { //uploads im
   res.status(200).send({ mess: "Image added" });
 })
 
-router.post("/check", upload.single("file"), async (req, res) => { //checks if photo exists
+router.post("/check", upload.single("file"), async (req, res) => {
+  // checks if photo exists
   if (!req.file) {
-    return res.status(400).send({ mess: 'No file attached' });
+    return res.status(400).send({ mess: "No file attached" });
   }
+
   if (!req.file.mimetype.startsWith("image/jpeg")) {
-    return res.status(400).send({ error: 'Wrong file format' });
+    return res.status(400).send({ error: "Wrong file format" });
   }
-  const sha256 = sha256FromBuffer(req.file.buffer);
-  const phash = await phashFromBuffer(req.file.buffer);
-  console.log(phash)
-  let selectQuery = supabase
-    .from("images")
-    .select(`
-      code,
-      url
-    `).eq("sha256", sha256)
-  let { data: DBdata, error: DBerror } = await selectQuery;
-  if (DBerror) {
-    return res.status(500).send({ mess: 'Supabase DB error' });
-  }
-  if (DBdata.length > 0){
-    return res.status(200).send(
-      { 
+
+  try {
+    const sha256 = sha256FromBuffer(req.file.buffer);
+    const phash = await phashFromBuffer(req.file.buffer);
+
+    // 1. Exact match (SHA256)
+    const { data: DBdata, error: DBerror } = await supabase
+      .from("images")
+      .select(`
+        code,
+        url,
+        localization,
+        takenAt
+      `)
+      .eq("sha256", sha256);
+
+    if (DBerror) {
+      return res.status(500).send({ mess: "Supabase DB error" });
+    }
+
+    if (DBdata && DBdata.length > 0) {
+      return res.status(200).send({
         exactMatch: true,
         similarMatch: false,
         matches: [
@@ -140,58 +151,85 @@ router.post("/check", upload.single("file"), async (req, res) => { //checks if p
             code: DBdata[0].code,
             url: DBdata[0].url,
             localization: DBdata[0].localization,
-            takenAt: DBdata[0].takenAt
+            takenAt: DBdata[0].takenAt,
+            distance: 0
           }
         ]
-      }
-    );
-  }
-  const { data, error } = await supabase.rpc(
-    "find_similar_images",
-    {
-      input_phash: phash
+      });
     }
-  );
-  if (error) {
-    console.error(error);
-    return res.status(500).send({ mess: 'Supabase DB error' });
-  }
-  if (data.length > 0){
-    let matches = [];
-    for (const e of data) {
-      matches.push({code: e.code, url: e.url, localization: e.localization})
-    };
-    return res.status(200).send(
-      { 
+
+    // 2. Similar match (pHash)
+    const { data, error } = await supabase.rpc("find_similar_images", {
+      input_phash: phash
+    });
+
+    if (error) {
+      console.error(error);
+      return res.status(500).send({ mess: "Supabase DB error" });
+    }
+
+    if (data && data.length > 0) {
+      const matches = data.map(e => ({
+        code: e.code,
+        url: e.url,
+        localization: e.localization,
+        distance: e.distance // ✅ NOW PASSED TO CLIENT
+      }));
+
+      return res.status(200).send({
         exactMatch: false,
         similarMatch: true,
-        matches: matches
+        matches
+      });
+    }
+
+    // 3. No matches
+    return res.status(200).send({
+      exactMatch: false,
+      similarMatch: false,
+      mess: "No matches"
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send({ mess: "Internal server error" });
+  }
+});
+
+
+async function GetGeo(lat, lon) {
+
+  try {
+    const response = await axios.get(
+      "https://api.bigdatacloud.net/data/reverse-geocode",
+      {
+        params: {
+          latitude: lat,
+          longitude: lon,
+          key: process.env.API_GEO,   // ✅ key goes here
+          localityLanguage: "en"
+        }
       }
     );
-  }
-  else{
-    return res.status(200).send(
-      { 
-        mess: "No matches"
-      }
-    );
-  }
-})
 
-async function GetGeo(lat, lon){
-  // const response = await axios.get('https://api.latlng.work/reverse', {
-  // params: {
-  //  lat: lat,
-  //   lon: lon
-  // },
-  //   headers: {"X-Api-Key": process.env.API_GEO}
-  // })
-  // const loc = response.data.features[0].properties.country + ", " + response.data.features[0].properties.city;
+    const data = response.data;
 
-  // rate limits were causing errors
-  const loc = "test not real location"
-  return loc;
+    const country = data.countryName || "";
+    const city =
+      data.city ||
+      data.locality ||
+      data.principalSubdivision ||
+      "";
+
+    const loc = [country, city].filter(Boolean).join(", ");
+    return loc || "unknown location";
+  } catch (err) {
+    console.error("Geo error:", err.response?.data || err.message);
+    return "unknown location";
+    
+  }
 }
+
 async function TryInsert(data, maxRetries = 5) {
   for (let i = 0; i < maxRetries; i++) {
     const code = MakeCode(6);
