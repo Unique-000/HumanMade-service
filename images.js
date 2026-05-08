@@ -9,7 +9,7 @@ import { createClient } from '@supabase/supabase-js'
 import axios from "axios"
 import sharp from "sharp";
 import "dotenv/config.js";
-
+import requireLogin from "./middleware/requireLogin.js";
 
 
 const supabase = createClient(
@@ -60,7 +60,7 @@ router.get("/:code", async (req, res) => { //return photos url and data based on
   }
 })
 
-router.post("/upload", upload.single("file"), async (req, res) => { //uploads image to blob and saves necessary data in db
+router.post("/upload", requireLogin, upload.single("file"), async (req, res) => { //uploads image to blob and saves necessary data in db
   if (!req.file) {
     return res.status(400).send({ mess: 'No file attached' });
   }
@@ -110,7 +110,10 @@ router.post("/upload", upload.single("file"), async (req, res) => { //uploads im
     console.log(err)
     return res.status(500).send({ mess: "Supabase DB error" });
   }
-  res.status(200).send({ mess: "Image added" });
+  res.status(200).send({
+  mess: "Image added",
+  code
+});
 })
 
 router.post("/check", upload.single("file"), async (req, res) => {
@@ -173,7 +176,7 @@ router.post("/check", upload.single("file"), async (req, res) => {
         code: e.code,
         url: e.url,
         localization: e.localization,
-        distance: e.distance // ✅ NOW PASSED TO CLIENT
+        distance: e.distance // NOW PASSED TO CLIENT
       }));
 
       return res.status(200).send({
