@@ -10,7 +10,7 @@ import axios from "axios"
 import sharp from "sharp";
 import "dotenv/config.js";
 import requireLogin from "./middleware/requireLogin.js";
-
+import { recordHashOnChain } from "./solana.js"
 
 const supabase = createClient(
   process.env.PROJECT_URL,
@@ -38,7 +38,8 @@ router.get("/:code", async (req, res) => { //return photos url and data based on
       takenAt,
       localization,
       sha256,
-      phash
+      phash,
+      txSignature
     `).eq("code", req.params['code'])
   const { data, error } = await selectQuery;
   if (error) {
@@ -50,8 +51,9 @@ router.get("/:code", async (req, res) => { //return photos url and data based on
       url: data[0].url,
       takenAt: data[0].takenAt,
       localization: data[0].localization,
-      sha256: data[0].sha256,
-      phash: data[0].phash
+      sha256: Buffer.from(data[0].sha256.slice(2), 'hex').toString('utf-8'),
+      phash: data[0].phash,
+      txSignature: data[0].txSignature
     }
     );
   }
@@ -96,6 +98,7 @@ router.post("/upload", requireLogin, upload.single("file"), async (req, res) => 
   const sha256 = sha256FromBuffer(req.file.buffer);
   const phash = await phashFromBuffer(req.file.buffer);
   let code;
+  const uuid = await crypto.randomUUID();
   try {
     code = await TryInsert({
       url,
@@ -104,11 +107,18 @@ router.post("/upload", requireLogin, upload.single("file"), async (req, res) => 
       takenAt,
       sha256,
       phash,
-      localization
+      localization,
+      uuid
     });
   } catch (err) {
     console.log(err)
     return res.status(500).send({ mess: "Supabase DB error" });
+  }
+  const { errorUser } = await supabase
+  .rpc("increment_user_interaction", { p_login: req.user.login})
+  if (errorUser){
+    console.log(errorUser)
+    return res.status(500).send({ mess: "Supabase db error"});
   }
   res.status(200).send({
   mess: "Image added",
@@ -245,6 +255,15 @@ async function TryInsert(data, maxRetries = 5) {
       });
 
     if (!error) {
+      const sha256 = data.sha256;
+      const phash = data.phash;
+      const txSignature = await recordHashOnChain({ sha256, phash, code });
+      const { errorSignature } = await supabase
+      .from("images")
+      .update({
+        txSignature: txSignature
+      })
+      .eq("uuid", data.uuid);
       return code;
     }
 
