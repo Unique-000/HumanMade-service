@@ -1,10 +1,6 @@
 import express from "express"
 import multer from "multer"
 import crypto from "crypto";
-import { imageHash } from "image-hash";
-import fs from "fs"
-import os from "os";
-import path from "path"
 import { createClient } from '@supabase/supabase-js'
 import axios from "axios"
 import sharp from "sharp";
@@ -320,25 +316,64 @@ function MakeCode(length) {
     return result;
 }
 
-function bufferToTempFile(buffer) {
-  const tmpPath = path.join(os.tmpdir(), crypto.randomUUID() + ".jpg");
-  fs.writeFileSync(tmpPath, buffer);
-  return tmpPath;
+async function phashFromBuffer(buffer) {
+  const size = 32;
+  const smallerSize = 8;
+  const pixels = await sharp(buffer)
+    .rotate()
+    .resize(size, size, { fit: "fill" })
+    .greyscale()
+    .raw()
+    .toBuffer();
+
+  const matrix = Array.from({ length: size }, (_, y) =>
+    Array.from({ length: size }, (_, x) => pixels[y * size + x] ?? 0)
+  );
+
+  const dct = dct2D(matrix);
+  const values = [];
+
+  for (let y = 0; y < smallerSize; y++) {
+    for (let x = 0; x < smallerSize; x++) {
+      if (x === 0 && y === 0) continue;
+      values.push(dct[y][x]);
+    }
+  }
+
+  const median = values.slice().sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0;
+
+  const bitString =
+    "0" +
+    values
+      .map((value) => (value > median ? "1" : "0"))
+      .join("");
+
+  return bitString.match(/.{1,4}/g)?.map((chunk) => parseInt(chunk, 2).toString(16)).join("") ?? "";
 }
 
-async function phashFromBuffer(buffer) {
-  const normalized = await sharp(buffer)
-    .rotate()
-    .toBuffer();
-    
-  const filePath = bufferToTempFile(normalized);
-  return new Promise((resolve, reject) => {
-      imageHash(filePath, 16, true, (err, data) => {
-        fs.unlinkSync(filePath);
-        if (err) return reject(err);
-        resolve(data);
-    });
-  });
+function dct2D(matrix) {
+  const n = matrix.length;
+  const result = Array.from({ length: n }, () => Array(n).fill(0));
+
+  for (let u = 0; u < n; u++) {
+    for (let v = 0; v < n; v++) {
+      let sum = 0;
+      for (let x = 0; x < n; x++) {
+        for (let y = 0; y < n; y++) {
+          sum +=
+            matrix[x][y] *
+            Math.cos(((2 * x + 1) * u * Math.PI) / (2 * n)) *
+            Math.cos(((2 * y + 1) * v * Math.PI) / (2 * n));
+        }
+      }
+
+      const cu = u === 0 ? Math.SQRT1_2 : 1;
+      const cv = v === 0 ? Math.SQRT1_2 : 1;
+      result[u][v] = (2 / n) * cu * cv * sum;
+    }
+  }
+
+  return result;
 }
 
 function sha256FromBuffer(buffer) {
