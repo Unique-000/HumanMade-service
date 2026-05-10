@@ -1,4 +1,4 @@
-import { Connection, Keypair, Transaction, TransactionInstruction, PublicKey, sendAndConfirmTransaction, SystemProgram } from '@solana/web3.js';
+import { Connection, Keypair, Transaction, TransactionInstruction, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js';
 
 const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
 
@@ -7,11 +7,28 @@ const connection = new Connection(
   'confirmed'
 );
 
-const serverWallet = Keypair.fromSecretKey(
-  Uint8Array.from(JSON.parse(process.env.SOLANA_PRIVATE_KEY))
-);
+function getServerWallet() {
+  if (!process.env.SOLANA_PRIVATE_KEY) {
+    return null;
+  }
+
+  try {
+    return Keypair.fromSecretKey(
+      Uint8Array.from(JSON.parse(process.env.SOLANA_PRIVATE_KEY))
+    );
+  } catch (error) {
+    console.error("Invalid SOLANA_PRIVATE_KEY:", error);
+    return null;
+  }
+}
 
 export async function recordHashOnChain({ sha256, phash, code }) {
+  const serverWallet = getServerWallet();
+
+  if (!serverWallet) {
+    return null;
+  }
+
   const memoData = `sha256:${sha256}|phash:${phash}|code:${code}`;
 
   const memoInstruction = new TransactionInstruction({

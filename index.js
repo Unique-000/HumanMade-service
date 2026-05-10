@@ -16,6 +16,7 @@ const limiter = rateLimit({
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || "127.0.0.1";
 
 app.use(limiter)
 app.use(express.json());
@@ -37,6 +38,14 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log("server is running on port", server.address().port);
+const server = app.listen(PORT, HOST, () => {
+  const address = server.address();
+  const resolvedPort = typeof address === "object" && address && "port" in address
+    ? address.port
+    : PORT;
+  console.log(`server is running on http://${HOST}:${resolvedPort}`);
+});
+
+server.on("error", (error) => {
+  console.error("failed to start server", error);
 });

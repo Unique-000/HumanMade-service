@@ -17,8 +17,9 @@
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/users/register` | Creates a new user with 16-character login |
-| GET | `/api/users/login` | Checks if user account exists |
+| GET | `/api/users/register/preview` | Generates a server-side 16-digit login for the client to display |
+| POST | `/api/users/register` | Creates a new user with the provided or generated 16-character login |
+| POST | `/api/users/login` | Checks if user account exists |
 
 ---
 

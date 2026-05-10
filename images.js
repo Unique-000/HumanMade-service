@@ -51,7 +51,7 @@ router.get("/:code", async (req, res) => { //return photos url and data based on
       url: data[0].url,
       takenAt: data[0].takenAt,
       localization: data[0].localization,
-      sha256: Buffer.from(data[0].sha256.slice(2), 'hex').toString('utf-8'),
+      sha256: data[0].sha256,
       phash: data[0].phash,
       txSignature: data[0].txSignature
     }
@@ -147,7 +147,10 @@ router.post("/check", upload.single("file"), async (req, res) => {
         code,
         url,
         localization,
-        takenAt
+        takenAt,
+        sha256,
+        phash,
+        txSignature
       `)
       .eq("sha256", sha256);
 
@@ -165,6 +168,9 @@ router.post("/check", upload.single("file"), async (req, res) => {
             url: DBdata[0].url,
             localization: DBdata[0].localization,
             takenAt: DBdata[0].takenAt,
+            sha256: DBdata[0].sha256,
+            phash: DBdata[0].phash,
+            txSignature: DBdata[0].txSignature,
             distance: 0
           }
         ]
@@ -182,12 +188,32 @@ router.post("/check", upload.single("file"), async (req, res) => {
     }
 
     if (data && data.length > 0) {
-      const matches = data.map(e => ({
-        code: e.code,
-        url: e.url,
-        localization: e.localization,
-        distance: e.distance // NOW PASSED TO CLIENT
-      }));
+      const matchCodes = data.map((entry) => entry.code);
+      const { data: enrichedMatches, error: enrichError } = await supabase
+        .from("images")
+        .select("code, url, localization, takenAt, sha256, phash, txSignature")
+        .in("code", matchCodes);
+
+      if (enrichError) {
+        console.error(enrichError);
+        return res.status(500).send({ mess: "Supabase DB error" });
+      }
+
+      const enrichedMap = new Map((enrichedMatches ?? []).map((entry) => [entry.code, entry]));
+
+      const matches = data.map((entry) => {
+        const fullEntry = enrichedMap.get(entry.code);
+        return {
+          code: entry.code,
+          url: entry.url ?? fullEntry?.url,
+          localization: entry.localization ?? fullEntry?.localization,
+          takenAt: fullEntry?.takenAt,
+          sha256: fullEntry?.sha256,
+          phash: fullEntry?.phash,
+          txSignature: fullEntry?.txSignature,
+          distance: entry.distance
+        };
+      });
 
       return res.status(200).send({
         exactMatch: false,
