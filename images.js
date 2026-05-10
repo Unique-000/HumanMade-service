@@ -12,10 +12,16 @@ import "dotenv/config.js";
 import requireLogin from "./middleware/requireLogin.js";
 import { recordHashOnChain } from "./solana.js"
 
-const supabase = createClient(
-  process.env.PROJECT_URL,
-  process.env.API_SECRET
-)
+function getSupabase() {
+  const projectUrl = process.env.PROJECT_URL?.trim();
+  const apiSecret = process.env.API_SECRET?.trim();
+
+  if (!projectUrl || !apiSecret) {
+    throw new Error("Missing PROJECT_URL or API_SECRET environment variables");
+  }
+
+  return createClient(projectUrl, apiSecret);
+}
 
 const upload = multer({
   limits: {
@@ -31,6 +37,7 @@ router.get("/:code", async (req, res) => { //return photos url and data based on
   if (req.params['code'].length != 6){
     return res.status(400).send({ mess: 'Invalid photo code' });
   }
+  const supabase = getSupabase();
   const selectQuery = supabase
     .from("images")
     .select(`
@@ -78,6 +85,7 @@ router.post("/upload", requireLogin, upload.single("file"), async (req, res) => 
   }
   const takenAt = null || req.body.takenAt;
   let url = "";
+  const supabase = getSupabase();
   const filePath = crypto.randomUUID() + ".jpg"
   const { data, error } = await supabase.storage.from('images').upload(
   filePath, 
@@ -137,6 +145,7 @@ router.post("/check", upload.single("file"), async (req, res) => {
   }
 
   try {
+    const supabase = getSupabase();
     const sha256 = sha256FromBuffer(req.file.buffer);
     const phash = await phashFromBuffer(req.file.buffer);
 
@@ -270,6 +279,7 @@ async function GetGeo(lat, lon) {
 }
 
 async function TryInsert(data, maxRetries = 5) {
+  const supabase = getSupabase();
   for (let i = 0; i < maxRetries; i++) {
     const code = MakeCode(6);
 

@@ -1,9 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.PROJECT_URL,
-  process.env.API_SECRET
-)
+function getSupabase() {
+  const projectUrl = process.env.PROJECT_URL?.trim();
+  const apiSecret = process.env.API_SECRET?.trim();
+
+  if (!projectUrl || !apiSecret) {
+    throw new Error("Missing PROJECT_URL or API_SECRET environment variables");
+  }
+
+  return createClient(projectUrl, apiSecret);
+}
 
 export default async function requireLogin(req, res, next) {
   try {
@@ -13,6 +19,7 @@ export default async function requireLogin(req, res, next) {
       return res.status(401).send({ mess: "Missing or invalid login" });
     }
 
+    const supabase = getSupabase();
     const { data, error } = await supabase
       .from("users")
       .select("login")

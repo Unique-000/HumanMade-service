@@ -1,13 +1,20 @@
 import express from "express"
-import { createClient } from '@supabase/supabase-js'
 import "dotenv/config.js";
 
-const supabase = createClient(
-  process.env.PROJECT_URL,
-  process.env.API_SECRET
-)
+import { createClient } from '@supabase/supabase-js'
 
 const router = express.Router();
+
+function getSupabase() {
+  const projectUrl = process.env.PROJECT_URL?.trim();
+  const apiSecret = process.env.API_SECRET?.trim();
+
+  if (!projectUrl || !apiSecret) {
+    throw new Error("Missing PROJECT_URL or API_SECRET environment variables");
+  }
+
+  return createClient(projectUrl, apiSecret);
+}
 
 function generateLogin() {
   let login = "";
@@ -18,6 +25,7 @@ function generateLogin() {
 }
 
 async function loginExists(login) {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from("users")
     .select("login")
@@ -62,6 +70,7 @@ router.post("/register", async (req, res) => {
       return res.status(400).send({ mess: "Invalid login" });
     }
 
+    const supabase = getSupabase();
     const { data, error } = await supabase
       .from("users")
       .insert({ login })
@@ -97,6 +106,7 @@ router.post("/login", async (req, res) => { //checks if account exists
     return res.status(400).send({ mess: "Invalid login" });
   }
   try {
+    const supabase = getSupabase();
     const { data, error } = await supabase
       .from("users")
       .select("login")

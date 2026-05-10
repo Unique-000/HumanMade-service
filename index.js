@@ -38,14 +38,18 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-const server = app.listen(PORT, HOST, () => {
-  const address = server.address();
-  const resolvedPort = typeof address === "object" && address && "port" in address
-    ? address.port
-    : PORT;
-  console.log(`server is running on http://${HOST}:${resolvedPort}`);
-});
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, HOST, () => {
+    const address = server.address();
+    const resolvedPort = typeof address === "object" && address && "port" in address
+      ? address.port
+      : PORT;
+    console.log(`server is running on http://${HOST}:${resolvedPort}`);
+  });
 
-server.on("error", (error) => {
-  console.error("failed to start server", error);
-});
+  server.on("error", (error) => {
+    console.error("failed to start server", error);
+  });
+}
+
+export default app;
